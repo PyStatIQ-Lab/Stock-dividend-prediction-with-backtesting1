@@ -152,7 +152,7 @@ def backtest_dividend_predictions(ticker):
         
         results.append({
             'As of Date': last_date.strftime('%Y-%m-%d'),
-            'Predicted Date': predicted_date.strftime('%Y-%m-%d'),
+            'Predicted Date': predicted_date.strftime('%Y-%m-%d') if predicted_date else "N/A",
             'Predicted Amount': predicted_amount,
             'Actual Date': actual_date.strftime('%Y-%m-%d') if actual_date else "N/A",
             'Actual Amount': actual_amount if actual_amount else "N/A",
@@ -332,8 +332,12 @@ if 'selected_stocks' in locals() and selected_stocks:
                 
                 # Display metrics
                 if not backtest_df.empty:
-                    date_errors = pd.to_numeric(backtest_df['Date Error (days)'], errors='coerce').dropna()
-                    amount_errors = pd.to_numeric(backtest_df['Amount Error (%)'], errors='coerce').dropna()
+                    # Convert to numeric and handle N/A values
+                    backtest_df['Date Error (days)'] = pd.to_numeric(backtest_df['Date Error (days)'], errors='coerce')
+                    backtest_df['Amount Error (%)'] = pd.to_numeric(backtest_df['Amount Error (%)'], errors='coerce')
+                    
+                    date_errors = backtest_df['Date Error (days)'].dropna()
+                    amount_errors = backtest_df['Amount Error (%)'].dropna()
                     
                     col1, col2, col3 = st.columns(3)
                     
@@ -376,40 +380,60 @@ if 'selected_stocks' in locals() and selected_stocks:
                     tab1, tab2, tab3 = st.tabs(["Date Errors", "Amount Errors", "Prediction Accuracy"])
                     
                     with tab1:
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        sns.lineplot(data=plot_df, x='As of Date', y='Date Error (days)', ax=ax, marker='o')
-                        ax.axhline(y=0, color='r', linestyle='--')
-                        ax.set_title('Date Prediction Error Over Time', fontsize=16)
-                        ax.set_xlabel('Simulation Date')
-                        ax.set_ylabel('Error (days)')
-                        ax.grid(True, linestyle='--', alpha=0.7)
-                        st.pyplot(fig)
+                        # Filter out N/A values for plotting
+                        plot_df_date = plot_df[plot_df['Date Error (days)'].notna()].copy()
+                        
+                        if not plot_df_date.empty:
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            sns.lineplot(data=plot_df_date, x='As of Date', y='Date Error (days)', ax=ax, marker='o')
+                            ax.axhline(y=0, color='r', linestyle='--')
+                            ax.set_title('Date Prediction Error Over Time', fontsize=16)
+                            ax.set_xlabel('Simulation Date')
+                            ax.set_ylabel('Error (days)')
+                            ax.grid(True, linestyle='--', alpha=0.7)
+                            st.pyplot(fig)
+                        else:
+                            st.warning("No valid data for Date Error plot")
                     
                     with tab2:
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        sns.lineplot(data=plot_df, x='As of Date', y='Amount Error (%)', ax=ax, marker='o')
-                        ax.axhline(y=0, color='r', linestyle='--')
-                        ax.set_title('Amount Prediction Error Over Time', fontsize=16)
-                        ax.set_xlabel('Simulation Date')
-                        ax.set_ylabel('Error (%)')
-                        ax.grid(True, linestyle='--', alpha=0.7)
-                        st.pyplot(fig)
+                        # Filter out N/A values for plotting
+                        plot_df_amount = plot_df[plot_df['Amount Error (%)'].notna()].copy()
+                        
+                        if not plot_df_amount.empty:
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            sns.lineplot(data=plot_df_amount, x='As of Date', y='Amount Error (%)', ax=ax, marker='o')
+                            ax.axhline(y=0, color='r', linestyle='--')
+                            ax.set_title('Amount Prediction Error Over Time', fontsize=16)
+                            ax.set_xlabel('Simulation Date')
+                            ax.set_ylabel('Error (%)')
+                            ax.grid(True, linestyle='--', alpha=0.7)
+                            st.pyplot(fig)
+                        else:
+                            st.warning("No valid data for Amount Error plot")
                     
                     with tab3:
                         # Calculate prediction accuracy
-                        plot_df['Date Accuracy'] = 100 - np.abs(plot_df['Date Error (days)'] / 30) * 100
-                        plot_df['Amount Accuracy'] = 100 - np.abs(plot_df['Amount Error (%)'])
+                        plot_df_acc = plot_df.copy()
+                        plot_df_acc['Date Accuracy'] = 100 - np.abs(plot_df_acc['Date Error (days)'] / 30) * 100
+                        plot_df_acc['Amount Accuracy'] = 100 - np.abs(plot_df_acc['Amount Error (%)'])
                         
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        sns.lineplot(data=plot_df, x='As of Date', y='Date Accuracy', ax=ax, label='Date Accuracy', marker='o')
-                        sns.lineplot(data=plot_df, x='As of Date', y='Amount Accuracy', ax=ax, label='Amount Accuracy', marker='o')
-                        ax.set_title('Prediction Accuracy Over Time', fontsize=16)
-                        ax.set_xlabel('Simulation Date')
-                        ax.set_ylabel('Accuracy (%)')
-                        ax.legend()
-                        ax.grid(True, linestyle='--', alpha=0.7)
-                        ax.set_ylim(0, 100)
-                        st.pyplot(fig)
+                        # Filter out N/A values
+                        plot_df_acc = plot_df_acc[plot_df_acc['Date Accuracy'].notna() & 
+                                                 plot_df_acc['Amount Accuracy'].notna()]
+                        
+                        if not plot_df_acc.empty:
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            sns.lineplot(data=plot_df_acc, x='As of Date', y='Date Accuracy', ax=ax, label='Date Accuracy', marker='o')
+                            sns.lineplot(data=plot_df_acc, x='As of Date', y='Amount Accuracy', ax=ax, label='Amount Accuracy', marker='o')
+                            ax.set_title('Prediction Accuracy Over Time', fontsize=16)
+                            ax.set_xlabel('Simulation Date')
+                            ax.set_ylabel('Accuracy (%)')
+                            ax.legend()
+                            ax.grid(True, linestyle='--', alpha=0.7)
+                            ax.set_ylim(0, 100)
+                            st.pyplot(fig)
+                        else:
+                            st.warning("No valid data for Accuracy plot")
                 
                 # Download button
                 st.subheader("📥 Download Results")
